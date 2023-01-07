@@ -3,7 +3,7 @@
 
 // This module contains some integration tests for boringtun
 // Those tests require docker and sudo privileges to run
-#[cfg(all(test, not(target_os = "macos")))]
+#[cfg(all(test))]
 mod tests {
     use crate::device::{DeviceConfig, DeviceHandle};
     use base64::encode as base64encode;
