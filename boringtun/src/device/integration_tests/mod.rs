@@ -171,7 +171,7 @@ mod tests {
                     "--rm", // Cleanup
                     "--name",
                     &peer_config_file[5..],
-                    "vkrasnov/wireguard-test",
+                    "boringtun-test",
                 ])
                 .status()
                 .expect("Failed to run docker");
