@@ -1,10 +1,13 @@
 // Copyright (c) 2019 Cloudflare, Inc. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 
+pub mod channel;
+
 use super::{errno, errno_str, Error};
 use libc::*;
 use std::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::os::unix::io::{AsRawFd, RawFd};
+use channel::Channel;
 
 /// Receives and sends UDP packets over the network
 #[derive(Debug)]
@@ -250,25 +253,6 @@ impl UDPSocket {
         }
     }
 
-    /// Bind the socket to a local port
-    pub fn bind(self, port: u16) -> Result<UDPSocket, Error> {
-        if self.version == 6 {
-            return self.bind6(port);
-        }
-
-        self.bind4(port)
-    }
-
-    /// Connect a socket to a remote address, must call bind prior to connect
-    /// # Panics
-    /// When connecting an IPv4 socket to an IPv6 address and vice versa
-    pub fn connect(self, dst: &SocketAddr) -> Result<UDPSocket, Error> {
-        match dst {
-            SocketAddr::V4(dst) => self.connect4(dst),
-            SocketAddr::V6(dst) => self.connect6(dst),
-        }
-    }
-
     /// Set socket mode to non blocking
     pub fn set_non_blocking(self) -> Result<UDPSocket, Error> {
         match unsafe { fcntl(self.fd, F_GETFL) } {
@@ -337,10 +321,33 @@ impl UDPSocket {
         }
     }
 
+}
+
+impl Channel for UDPSocket {
+
+    /// Bind the socket to a local port
+    fn bind(self, port: u16) -> Result<Self, Error> {
+        if self.version == 6 {
+            return self.bind6(port);
+        }
+
+        self.bind4(port)
+    }
+
+    /// Connect a socket to a remote address, must call bind prior to connect
+    /// # Panics
+    /// When connecting an IPv4 socket to an IPv6 address and vice versa
+    fn connect(self, dst: &SocketAddr) -> Result<UDPSocket, Error> {
+        match dst {
+            SocketAddr::V4(dst) => self.connect4(dst),
+            SocketAddr::V6(dst) => self.connect6(dst),
+        }
+    }
+
     /// Send buf to a remote address, returns 0 on error, or amount of data send on success
     /// # Panics
     /// When sending from an IPv4 socket to an IPv6 address and vice versa
-    pub fn sendto(&self, buf: &[u8], dst: SocketAddr) -> usize {
+    fn sendto(&self, buf: &[u8], dst: SocketAddr) -> usize {
         match dst {
             SocketAddr::V4(addr) => self.sendto4(buf, addr),
             SocketAddr::V6(addr) => self.sendto6(buf, addr),
@@ -348,7 +355,7 @@ impl UDPSocket {
     }
 
     /// Receives a message on a non-connected UDP socket and returns its contents and origin address
-    pub fn recvfrom<'a>(&self, buf: &'a mut [u8]) -> Result<(SocketAddr, &'a mut [u8]), Error> {
+    fn recvfrom<'a>(&self, buf: &'a mut [u8]) -> Result<(SocketAddr, &'a mut [u8]), Error> {
         match self.version {
             4 => self.recvfrom4(buf),
             _ => self.recvfrom6(buf),
@@ -356,7 +363,7 @@ impl UDPSocket {
     }
 
     /// Receives a message on a connected UDP socket and returns its contents
-    pub fn read<'a>(&self, dst: &'a mut [u8]) -> Result<&'a mut [u8], Error> {
+    fn read<'a>(&self, dst: &'a mut [u8]) -> Result<&'a mut [u8], Error> {
         match unsafe { recv(self.fd, &mut dst[0] as *mut u8 as _, dst.len(), 0) } {
             -1 => Err(Error::UDPRead(errno())),
             n => Ok(&mut dst[..n as usize]),
@@ -364,12 +371,13 @@ impl UDPSocket {
     }
 
     /// Sends a message on a connected UDP socket. Returns number of bytes successfully sent.
-    pub fn write(&self, src: &[u8]) -> usize {
+    fn write(&self, src: &[u8]) -> usize {
         UDPSocket::write_fd(self.fd, src)
     }
 
     /// Calls shutdown on a connected socket. This will trigger an EOF in the event queue.
-    pub fn shutdown(&self) {
+    fn shutdown(&self) {
         unsafe { shutdown(self.fd, SHUT_RDWR) };
     }
+
 }

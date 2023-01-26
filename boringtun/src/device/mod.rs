@@ -47,6 +47,7 @@ use peer::{AllowedIP, Peer};
 use poll::{EventPoll, EventRef, WaitResult};
 use tun::{errno, errno_str, TunSocket};
 use udp::UDPSocket;
+use udp::channel::Channel;
 
 use dev_lock::{Lock, LockReadGuard};
 
