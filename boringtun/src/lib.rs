@@ -7,6 +7,7 @@
 
 #[cfg(not(any(target_os = "windows", target_os = "android", target_os = "ios")))]
 pub mod device;
+pub mod obfuscator;
 
 #[cfg(feature = "ffi-bindings")]
 pub mod ffi;

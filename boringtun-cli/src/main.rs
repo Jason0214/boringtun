@@ -3,6 +3,7 @@
 
 use boringtun::device::drop_privileges::drop_privileges;
 use boringtun::device::{DeviceConfig, DeviceHandle};
+use boringtun::obfuscator::ObfuscatorType;
 use clap::{Arg, Command};
 use daemonize::Daemonize;
 use std::fs::File;
@@ -82,6 +83,10 @@ fn main() {
             Arg::new("disable-multi-queue")
                 .long("disable-multi-queue")
                 .help("Disable using multiple queues for the tunnel interface"),
+            Arg::new("enable-obfuscator")
+                .long("enable-obfuscator")
+                .possible_values(&["quic"])
+                .help("Enable obfuscate traffic to packets from other common protocols"),
         ])
         .get_matches();
 
@@ -95,6 +100,11 @@ fn main() {
     }
     let n_threads: usize = matches.value_of_t("threads").unwrap_or_else(|e| e.exit());
     let log_level: Level = matches.value_of_t("verbosity").unwrap_or_else(|e| e.exit());
+
+    let mut obfuscator: Option<ObfuscatorType> = None;
+    if matches.is_present("enable-obfuscator") {
+       obfuscator.replace(matches.value_of_t("enable-obfuscator").unwrap_or_else(|e| e.exit()));
+    }
 
     // Create a socketpair to communicate between forked processes
     let (sock1, sock2) = UnixDatagram::pair().unwrap();
@@ -151,6 +161,7 @@ fn main() {
         use_connected_socket: !matches.is_present("disable-connected-udp"),
         #[cfg(target_os = "linux")]
         use_multi_queue: !matches.is_present("disable-multi-queue"),
+        obfuscator_type: obfuscator,
     };
 
     let mut device_handle: DeviceHandle = match DeviceHandle::new(tun_name, config) {

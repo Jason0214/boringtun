@@ -42,6 +42,7 @@ use crate::noise::errors::WireGuardError;
 use crate::noise::handshake::parse_handshake_anon;
 use crate::noise::rate_limiter::RateLimiter;
 use crate::noise::{Packet, Tunn, TunnResult};
+use crate::obfuscator::ObfuscatorType;
 use allowed_ips::AllowedIps;
 use peer::{AllowedIP, Peer};
 use poll::{EventPoll, EventRef, WaitResult};
@@ -100,6 +101,7 @@ pub struct DeviceConfig {
     pub use_multi_queue: bool,
     #[cfg(target_os = "linux")]
     pub uapi_fd: i32,
+    pub obfuscator_type: Option<ObfuscatorType>,
 }
 
 impl Default for DeviceConfig {
@@ -111,6 +113,7 @@ impl Default for DeviceConfig {
             use_multi_queue: true,
             #[cfg(target_os = "linux")]
             uapi_fd: -1,
+            obfuscator_type: None,
         }
     }
 }
