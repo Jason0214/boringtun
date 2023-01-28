@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 use boringtun::device::drop_privileges::drop_privileges;
+use boringtun::device::udp::UDPSocket;
 use boringtun::device::{DeviceConfig, DeviceHandle};
+use boringtun::obfuscator::quic::QuicObfuscator;
 use boringtun::obfuscator::ObfuscatorType;
 use clap::{Arg, Command};
 use daemonize::Daemonize;
@@ -103,7 +105,11 @@ fn main() {
 
     let mut obfuscator: Option<ObfuscatorType> = None;
     if matches.is_present("enable-obfuscator") {
-       obfuscator.replace(matches.value_of_t("enable-obfuscator").unwrap_or_else(|e| e.exit()));
+        obfuscator.replace(
+            matches
+                .value_of_t("enable-obfuscator")
+                .unwrap_or_else(|e| e.exit()),
+        );
     }
 
     // Create a socketpair to communicate between forked processes
@@ -161,10 +167,14 @@ fn main() {
         use_connected_socket: !matches.is_present("disable-connected-udp"),
         #[cfg(target_os = "linux")]
         use_multi_queue: !matches.is_present("disable-multi-queue"),
-        obfuscator_type: obfuscator,
     };
 
-    let mut device_handle: DeviceHandle = match DeviceHandle::new(tun_name, config) {
+    let device_handle_res = match obfuscator.unwrap_or(ObfuscatorType::NONE) {
+        ObfuscatorType::NONE => DeviceHandle::<UDPSocket>::new(tun_name, config),
+        ObfuscatorType::QUIC => DeviceHandle::<QuicObfuscator>::new(tun_name, config),
+    };
+
+    let mut device_handle = match device_handle_res {
         Ok(d) => d,
         Err(e) => {
             // Notify parent that tunnel initialization failed

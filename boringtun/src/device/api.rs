@@ -4,8 +4,10 @@
 use super::dev_lock::LockReadGuard;
 use super::drop_privileges::get_saved_ids;
 use super::{AllowedIP, Device, Error, SocketAddr};
+use super::channel::Channel;
 use crate::device::Action;
 use crate::serialization::KeyBytes;
+
 use hex::encode as encode_hex;
 use libc::*;
 use std::fs::{create_dir, remove_file};
@@ -33,7 +35,7 @@ fn create_sock_dir() {
     }
 }
 
-impl Device {
+impl<ChannelT: Channel> Device<ChannelT> {
     /// Register the api handler for this Device. The api handler receives stream connections on a Unix socket
     /// with a known path: /var/run/wireguard/{tun_name}.sock.
     pub fn register_api_handler(&mut self) -> Result<(), Error> {
@@ -153,7 +155,7 @@ impl Device {
 }
 
 #[allow(unused_must_use)]
-fn api_get(writer: &mut BufWriter<&UnixStream>, d: &Device) -> i32 {
+fn api_get<ChannelT: Channel>(writer: &mut BufWriter<&UnixStream>, d: &Device<ChannelT>) -> i32 {
     // get command requires an empty line, but there is no reason to be religious about it
     if let Some(ref k) = d.key_pair {
         writeln!(writer, "own_public_key={}", encode_hex(k.1.as_bytes()));
@@ -199,7 +201,7 @@ fn api_get(writer: &mut BufWriter<&UnixStream>, d: &Device) -> i32 {
     0
 }
 
-fn api_set(reader: &mut BufReader<&UnixStream>, d: &mut LockReadGuard<Device>) -> i32 {
+fn api_set<ChannelT: Channel>(reader: &mut BufReader<&UnixStream>, d: &mut LockReadGuard<Device<ChannelT>>) -> i32 {
     d.try_writeable(
         |device| device.trigger_yield(),
         |device| {
@@ -269,9 +271,9 @@ fn api_set(reader: &mut BufReader<&UnixStream>, d: &mut LockReadGuard<Device>) -
     .unwrap_or(EIO)
 }
 
-fn api_set_peer(
+fn api_set_peer<ChannelT: Channel>(
     reader: &mut BufReader<&UnixStream>,
-    d: &mut Device,
+    d: &mut Device<ChannelT>,
     pub_key: x25519_dalek::PublicKey,
 ) -> i32 {
     let mut cmd = String::new();

@@ -12,7 +12,7 @@ use crate::device::{AllowedIps, Error};
 use crate::noise::{Tunn, TunnResult};
 
 use crate::device::udp::UDPSocket;
-use crate::device::udp::channel::Channel;
+use crate::device::channel::Channel;
 
 #[derive(Default, Debug)]
 pub struct Endpoint {

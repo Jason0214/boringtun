@@ -1,13 +1,12 @@
 // Copyright (c) 2019 Cloudflare, Inc. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 
-pub mod channel;
-
 use super::{errno, errno_str, Error};
+use super::channel::Channel;
+
 use libc::*;
 use std::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::os::unix::io::{AsRawFd, RawFd};
-use channel::Channel;
 
 /// Receives and sends UDP packets over the network
 #[derive(Debug)]

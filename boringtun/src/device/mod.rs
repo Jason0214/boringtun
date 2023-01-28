@@ -29,6 +29,8 @@ pub mod tun;
 #[path = "udp_unix.rs"]
 pub mod udp;
 
+pub mod channel;
+
 use std::collections::HashMap;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
@@ -42,13 +44,12 @@ use crate::noise::errors::WireGuardError;
 use crate::noise::handshake::parse_handshake_anon;
 use crate::noise::rate_limiter::RateLimiter;
 use crate::noise::{Packet, Tunn, TunnResult};
-use crate::obfuscator::ObfuscatorType;
 use allowed_ips::AllowedIps;
 use peer::{AllowedIP, Peer};
 use poll::{EventPoll, EventRef, WaitResult};
 use tun::{errno, errno_str, TunSocket};
 use udp::UDPSocket;
-use udp::channel::Channel;
+use channel::Channel;
 
 use dev_lock::{Lock, LockReadGuard};
 
@@ -85,11 +86,15 @@ enum Action {
     Exit,     // Stop the loop
 }
 
-// Event handler function
-type Handler = Box<dyn Fn(&mut LockReadGuard<Device>, &mut ThreadData) -> Action + Send + Sync>;
+pub trait BoringTunDevice {
+    fn wait(&mut self) -> ();
+}
 
-pub struct DeviceHandle {
-    device: Arc<Lock<Device>>, // The interface this handle owns
+// Event handler function
+type Handler<ChannelT> = Box<dyn Fn(&mut LockReadGuard<Device<ChannelT>>, &mut ThreadData) -> Action + Send + Sync>;
+
+pub struct DeviceHandle<ChannelT: Channel + Sync + Send + 'static> {
+    device: Arc<Lock<Device<ChannelT>>>, // The interface this handle owns
     threads: Vec<JoinHandle<()>>,
 }
 
@@ -101,7 +106,6 @@ pub struct DeviceConfig {
     pub use_multi_queue: bool,
     #[cfg(target_os = "linux")]
     pub uapi_fd: i32,
-    pub obfuscator_type: Option<ObfuscatorType>,
 }
 
 impl Default for DeviceConfig {
@@ -113,14 +117,13 @@ impl Default for DeviceConfig {
             use_multi_queue: true,
             #[cfg(target_os = "linux")]
             uapi_fd: -1,
-            obfuscator_type: None,
         }
     }
 }
 
-pub struct Device {
+pub struct Device<ChannelT: Channel> {
     key_pair: Option<(x25519_dalek::StaticSecret, x25519_dalek::PublicKey)>,
-    queue: Arc<EventPoll<Handler>>,
+    queue: Arc<EventPoll<Handler<ChannelT>>>,
 
     listen_port: u16,
     fwmark: Option<u32>,
@@ -128,6 +131,9 @@ pub struct Device {
     iface: Arc<TunSocket>,
     udp4: Option<Arc<UDPSocket>>,
     udp6: Option<Arc<UDPSocket>>,
+
+    channel_udp4: Option<Arc<ChannelT>>,
+    channel_udp6: Option<Arc<ChannelT>>,
 
     yield_notice: Option<EventRef>,
     exit_notice: Option<EventRef>,
@@ -155,10 +161,10 @@ struct ThreadData {
     dst_buf: [u8; MAX_UDP_SIZE],
 }
 
-impl DeviceHandle {
-    pub fn new(name: &str, config: DeviceConfig) -> Result<DeviceHandle, Error> {
+impl<ChannelT: Channel + Sync + Send + 'static> DeviceHandle<ChannelT> {
+    pub fn new(name: &str, config: DeviceConfig) -> Result<Box<dyn BoringTunDevice>, Error> {
         let n_threads = config.n_threads;
-        let mut wg_interface = Device::new(name, config)?;
+        let mut wg_interface = Device::<ChannelT>::new(name, config)?;
         wg_interface.open_listen_socket(0)?; // Start listening on a random port
 
         let interface_lock = Arc::new(Lock::new(wg_interface));
@@ -168,20 +174,14 @@ impl DeviceHandle {
         for i in 0..n_threads {
             threads.push({
                 let dev = Arc::clone(&interface_lock);
-                thread::spawn(move || DeviceHandle::event_loop(i, &dev))
+                thread::spawn(move || DeviceHandle::<ChannelT>::event_loop(i, &dev))
             });
         }
 
-        Ok(DeviceHandle {
+        Ok(Box::new(DeviceHandle {
             device: interface_lock,
             threads,
-        })
-    }
-
-    pub fn wait(&mut self) {
-        while let Some(thread) = self.threads.pop() {
-            thread.join().unwrap();
-        }
+        }))
     }
 
     pub fn clean(&mut self) {
@@ -191,7 +191,7 @@ impl DeviceHandle {
         }
     }
 
-    fn event_loop(_i: usize, device: &Lock<Device>) {
+    fn event_loop(_i: usize, device: &Lock<Device<ChannelT>>) {
         #[cfg(target_os = "linux")]
         let mut thread_local = ThreadData {
             src_buf: [0u8; MAX_UDP_SIZE],
@@ -261,14 +261,22 @@ impl DeviceHandle {
     }
 }
 
-impl Drop for DeviceHandle {
+impl<ChannelT: Channel + Sync + Send + 'static> BoringTunDevice for DeviceHandle<ChannelT> {
+    fn wait(&mut self) {
+        while let Some(thread) = self.threads.pop() {
+            thread.join().unwrap();
+        }
+    }
+}
+
+impl<ChannelT: Channel + Sync + Send + 'static> Drop for DeviceHandle<ChannelT> {
     fn drop(&mut self) {
         self.device.read().trigger_exit();
         self.clean();
     }
 }
 
-impl Device {
+impl<ChannelT: Channel> Device<ChannelT> {
     fn next_index(&mut self) -> u32 {
         let next_index = self.next_index;
         self.next_index += 1;
@@ -340,8 +348,8 @@ impl Device {
         tracing::info!("Peer added");
     }
 
-    pub fn new(name: &str, config: DeviceConfig) -> Result<Device, Error> {
-        let poll = EventPoll::<Handler>::new()?;
+    pub fn new(name: &str, config: DeviceConfig) -> Result<Device<ChannelT>, Error> {
+        let poll = EventPoll::<Handler<ChannelT>>::new()?;
 
         // Create a tunnel device
         let iface = Arc::new(TunSocket::new(name)?.set_non_blocking()?);
@@ -367,6 +375,8 @@ impl Device {
             peers_by_ip: AllowedIps::new(),
             udp4: Default::default(),
             udp6: Default::default(),
+            channel_udp4: Default::default(),
+            channel_udp6: Default::default(),
             cleanup_paths: Default::default(),
             mtu: AtomicUsize::new(mtu),
             rate_limiter: None,
