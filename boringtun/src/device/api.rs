@@ -1,10 +1,10 @@
 // Copyright (c) 2019 Cloudflare, Inc. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 
+use super::channel::Channel;
 use super::dev_lock::LockReadGuard;
 use super::drop_privileges::get_saved_ids;
 use super::{AllowedIP, Device, Error, SocketAddr};
-use super::channel::Channel;
 use crate::device::Action;
 use crate::serialization::KeyBytes;
 
@@ -201,7 +201,10 @@ fn api_get<ChannelT: Channel>(writer: &mut BufWriter<&UnixStream>, d: &Device<Ch
     0
 }
 
-fn api_set<ChannelT: Channel>(reader: &mut BufReader<&UnixStream>, d: &mut LockReadGuard<Device<ChannelT>>) -> i32 {
+fn api_set<ChannelT: Channel>(
+    reader: &mut BufReader<&UnixStream>,
+    d: &mut LockReadGuard<Device<ChannelT>>,
+) -> i32 {
     d.try_writeable(
         |device| device.trigger_yield(),
         |device| {

@@ -6,20 +6,18 @@ use crate::device::Error;
 
 use std::net::SocketAddr;
 
-pub struct QuicObfuscator {
-
-}
+pub struct QuicObfuscator {}
 
 impl Channel for QuicObfuscator {
     fn bind(self, port: u16) -> Result<QuicObfuscator, Error> {
-        Ok(QuicObfuscator{})
+        Ok(QuicObfuscator {})
     }
 
     fn connect(self, dst: &SocketAddr) -> Result<QuicObfuscator, Error> {
-        Ok(QuicObfuscator{})
+        Ok(QuicObfuscator {})
     }
 
-    fn sendto(&self, buf: &[u8], dst: SocketAddr) ->usize {
+    fn sendto(&self, buf: &[u8], dst: SocketAddr) -> usize {
         0
     }
 
@@ -35,10 +33,7 @@ impl Channel for QuicObfuscator {
         0
     }
 
-    fn shutdown(&self) -> () {
-
-    }
-
+    fn shutdown(&self) -> () {}
 }
 
 impl QuicObfuscator {
@@ -56,6 +51,6 @@ impl QuicObfuscator {
         // config.set_initial_max_streams_uni(100);
         // config.set_disable_active_migration(true);
         // config.enable_early_data();
-        QuicObfuscator {  }
+        QuicObfuscator {}
     }
 }

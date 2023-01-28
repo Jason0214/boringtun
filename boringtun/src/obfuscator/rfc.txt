@@ -1,0 +1,58 @@
+   Figure 6 shows an example of a connection with a 0-RTT handshake and
+   a single packet of 0-RTT data.  Note that as described in
+   Section 12.3, the server acknowledges 0-RTT data in 1-RTT packets,
+   and the client sends 1-RTT packets in the same packet number space.
+
+   Client                                                  Server
+
+   Initial[0]: CRYPTO[CH]
+   0-RTT[0]: STREAM[0, "..."] ->
+
+                                    Initial[0]: CRYPTO[SH] ACK[0]
+                                     Handshake[0] CRYPTO[EE, FIN]
+                             <- 1-RTT[0]: STREAM[1, "..."] ACK[0]
+
+   Initial[1]: ACK[0]
+   Handshake[0]: CRYPTO[FIN], ACK[0]
+   1-RTT[1]: STREAM[0, "..."] ACK[0] ->
+
+                                             Handshake[1]: ACK[0]
+            <- 1-RTT[1]: HANDSHAKE_DONE, STREAM[3, "..."], ACK[1]
+
+                     Figure 6: Example 0-RTT Handshake
+
+
+   The Destination Connection ID field from the first Initial packet
+   sent by a client is used to determine packet protection keys for
+   Initial packets.  These keys change after receiving a Retry packet;
+   see Section 5.2 of [QUIC-TLS].
+
+   The client populates the Source Connection ID field with a value of
+   its choosing and sets the Source Connection ID Length field to
+   indicate the length.
+
+   0-RTT packets in the first flight use the same Destination Connection
+   ID and Source Connection ID values as the client's first Initial
+   packet.
+
+   Upon first receiving an Initial or Retry packet from the server, the
+   client uses the Source Connection ID supplied by the server as the
+   Destination Connection ID for subsequent packets, including any 0-RTT
+   packets.  This means that a client might have to change the
+   connection ID it sets in the Destination Connection ID field twice
+   during connection establishment: once in response to a Retry packet
+   and once in response to an Initial packet from the server.  Once a
+   client has received a valid Initial packet from the server, it MUST
+   discard any subsequent packet it receives on that connection with a
+   different Source Connection ID.
+
+   A client MUST change the Destination Connection ID it uses for
+   sending packets in response to only the first received Initial or
+   Retry packet.  A server MUST set the Destination Connection ID it
+   uses for sending packets based on the first received Initial packet.
+   Any further changes to the Destination Connection ID are only
+   permitted if the values are taken from NEW_CONNECTION_ID frames; if
+   subsequent Initial packets include a different Source Connection ID,
+   they MUST be discarded.  This avoids unpredictable outcomes that
+   might otherwise result from stateless processing of multiple Initial
+   packets with different Source Connection IDs.

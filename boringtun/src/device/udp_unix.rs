@@ -1,8 +1,8 @@
 // Copyright (c) 2019 Cloudflare, Inc. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 
-use super::{errno, errno_str, Error};
 use super::channel::Channel;
+use super::{errno, errno_str, Error};
 
 use libc::*;
 use std::net::{SocketAddr, SocketAddrV4, SocketAddrV6};
@@ -319,11 +319,9 @@ impl UDPSocket {
             _ => Ok(u16::from_be(addr.sin_port)),
         }
     }
-
 }
 
 impl Channel for UDPSocket {
-
     /// Bind the socket to a local port
     fn bind(self, port: u16) -> Result<Self, Error> {
         if self.version == 6 {
@@ -378,5 +376,4 @@ impl Channel for UDPSocket {
     fn shutdown(&self) {
         unsafe { shutdown(self.fd, SHUT_RDWR) };
     }
-
 }

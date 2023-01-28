@@ -1,7 +1,7 @@
 pub mod quic;
 
-use std::str::FromStr;
 use std::result::Result;
+use std::str::FromStr;
 
 #[derive(Copy, Clone, Debug)]
 pub enum ObfuscatorType {
@@ -23,4 +23,3 @@ impl FromStr for ObfuscatorType {
         Err(std::format!("Unknown obfuscator type '{}'!", value))
     }
 }
-

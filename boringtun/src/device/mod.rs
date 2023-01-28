@@ -45,11 +45,11 @@ use crate::noise::handshake::parse_handshake_anon;
 use crate::noise::rate_limiter::RateLimiter;
 use crate::noise::{Packet, Tunn, TunnResult};
 use allowed_ips::AllowedIps;
+use channel::Channel;
 use peer::{AllowedIP, Peer};
 use poll::{EventPoll, EventRef, WaitResult};
 use tun::{errno, errno_str, TunSocket};
 use udp::UDPSocket;
-use channel::Channel;
 
 use dev_lock::{Lock, LockReadGuard};
 
@@ -91,7 +91,8 @@ pub trait BoringTunDevice {
 }
 
 // Event handler function
-type Handler<ChannelT> = Box<dyn Fn(&mut LockReadGuard<Device<ChannelT>>, &mut ThreadData) -> Action + Send + Sync>;
+type Handler<ChannelT> =
+    Box<dyn Fn(&mut LockReadGuard<Device<ChannelT>>, &mut ThreadData) -> Action + Send + Sync>;
 
 pub struct DeviceHandle<ChannelT: Channel + Sync + Send + 'static> {
     device: Arc<Lock<Device<ChannelT>>>, // The interface this handle owns
