@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 use boringtun::device::drop_privileges::drop_privileges;
-use boringtun::device::udp::UDPSocket;
 use boringtun::device::{DeviceConfig, DeviceHandle};
 use boringtun::obfuscator::quic::QuicObfuscator;
+use boringtun::obfuscator::raw::NoneObfuscator;
 use boringtun::obfuscator::ObfuscatorType;
 use clap::{Arg, Command};
 use daemonize::Daemonize;
@@ -170,7 +170,7 @@ fn main() {
     };
 
     let device_handle_res = match obfuscator.unwrap_or(ObfuscatorType::NONE) {
-        ObfuscatorType::NONE => DeviceHandle::<UDPSocket>::new(tun_name, config),
+        ObfuscatorType::NONE => DeviceHandle::<NoneObfuscator>::new(tun_name, config),
         ObfuscatorType::QUIC => DeviceHandle::<QuicObfuscator>::new(tun_name, config),
     };
 

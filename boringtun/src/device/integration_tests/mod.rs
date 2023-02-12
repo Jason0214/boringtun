@@ -5,9 +5,9 @@
 // Those tests require docker and sudo privileges to run
 #[cfg(all(test))]
 mod tests {
-    use crate::device::udp::UDPSocket;
-    use crate::device::{DeviceConfig, DeviceHandle};
     use crate::device::BoringTunDevice;
+    use crate::device::{DeviceConfig, DeviceHandle};
+    use crate::obfuscator::raw::NoneObfuscator;
     use base64::encode as base64encode;
     use hex::encode;
     use rand_core::OsRng;
@@ -280,7 +280,7 @@ mod tests {
         fn init_with_config(addr_v4: IpAddr, addr_v6: IpAddr, config: DeviceConfig) -> WGHandle {
             // Generate a new name, utun100+ should work on macOS and Linux
             let name = format!("utun{}", NEXT_IFACE_IDX.fetch_add(1, Ordering::Relaxed));
-            let _device = DeviceHandle::<UDPSocket>::new(&name, config).unwrap();
+            let _device = DeviceHandle::<NoneObfuscator>::new(&name, config).unwrap();
             WGHandle {
                 _device,
                 name,

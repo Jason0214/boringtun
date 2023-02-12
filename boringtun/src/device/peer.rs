@@ -11,7 +11,6 @@ use std::sync::Arc;
 use crate::device::{AllowedIps, Error};
 use crate::noise::{Tunn, TunnResult};
 
-use crate::device::channel::Channel;
 use crate::device::udp::UDPSocket;
 
 #[derive(Default, Debug)]

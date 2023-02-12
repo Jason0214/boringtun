@@ -1,14 +1,11 @@
 use super::Error;
+use super::UDPSocket;
+
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 pub trait Channel {
-    fn bind(self, port: u16) -> Result<Self, Error>
-    where
-        Self: Sized;
-
-    fn connect(self, dst: &SocketAddr) -> Result<Self, Error>
-    where
-        Self: Sized;
+    fn init(udp: Arc<UDPSocket>) -> ();
 
     fn sendto(&self, buf: &[u8], dst: SocketAddr) -> usize;
 
@@ -18,5 +15,5 @@ pub trait Channel {
 
     fn write(&self, src: &[u8]) -> usize;
 
-    fn shutdown(&self) -> ();
+    fn close(&self) -> ();
 }

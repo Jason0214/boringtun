@@ -9,13 +9,7 @@ use std::net::SocketAddr;
 pub struct QuicObfuscator {}
 
 impl Channel for QuicObfuscator {
-    fn bind(self, port: u16) -> Result<QuicObfuscator, Error> {
-        Ok(QuicObfuscator {})
-    }
-
-    fn connect(self, dst: &SocketAddr) -> Result<QuicObfuscator, Error> {
-        Ok(QuicObfuscator {})
-    }
+    fn init(udp: std::sync::Arc<crate::device::udp::UDPSocket>) -> () {}
 
     fn sendto(&self, buf: &[u8], dst: SocketAddr) -> usize {
         0
@@ -33,7 +27,7 @@ impl Channel for QuicObfuscator {
         0
     }
 
-    fn shutdown(&self) -> () {}
+    fn close(&self) -> () {}
 }
 
 impl QuicObfuscator {
